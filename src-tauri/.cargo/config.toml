@@ -1,0 +1,7 @@
+[build]
+rustflags = [
+    "--remap-path-prefix=C:\\Users\\simpl\\Desktop\\1111\\dsh-desktop-tauri=proj",
+    "--remap-path-prefix=C:\\Users\\simpl\\.cargo=crates",
+    "--remap-path-prefix=C:\\Users\\simpl=home",
+    "-C", "strip=symbols",
+]
