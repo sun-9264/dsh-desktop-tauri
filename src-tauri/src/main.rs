@@ -90,6 +90,72 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+// —— 开箱自带内置主题：把打包的蓝主题装配进 ~/.dsh/profiles/web（在启动 DSH 前调用）——
+fn dsh_home() -> std::path::PathBuf {
+    std::env::var("DSH_HOME")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::path::PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default()).join(".dsh"))
+}
+
+fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let e = entry?;
+        let s = e.path();
+        let d = dst.join(e.file_name());
+        if e.file_type()?.is_dir() { copy_dir_recursive(&s, &d)?; } else { std::fs::copy(&s, &d)?; }
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+fn make_link(target: &std::path::Path, link: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(link.parent().unwrap_or(std::path::Path::new(".")))?;
+    junction::create(target, link)
+}
+#[cfg(not(windows))]
+fn make_link(target: &std::path::Path, link: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(link.parent().unwrap_or(std::path::Path::new(".")))?;
+    std::os::unix::fs::symlink(target, link)
+}
+
+fn write_profile_entry(plugin_dir: &std::path::Path, name: &str) -> std::io::Result<()> {
+    use serde_json::{json, Value};
+    let profile_dir = dsh_home().join("profiles").join("web");
+    let pkg_path = profile_dir.join("package.json");
+    if !pkg_path.exists() {
+        std::fs::create_dir_all(&profile_dir)?;
+        let default = json!({"name":"dsh-profile-web","private":true,"dependencies":{},"dsh":{"profile":{"bundles":["@deepseek-ai/dsh-base","@deepseek-ai/dsh-web-app"]}}});
+        std::fs::write(&pkg_path, serde_json::to_string_pretty(&default)?)?;
+        std::fs::write(profile_dir.join("cordis.yml"), "# dsh profile\n[]\n")?;
+        std::fs::write(profile_dir.join("cordis.patch.yml"), "# patch\n[]\n")?;
+    }
+    let mut pkg: Value = serde_json::from_str(&std::fs::read_to_string(&pkg_path)?)?;
+    if pkg.get("dependencies").is_none() { pkg["dependencies"] = json!({}); }
+    pkg["dependencies"][name] = json!(format!("link:{}", plugin_dir.display()));
+    if pkg.get("dsh").is_none() { pkg["dsh"] = json!({}); }
+    if pkg["dsh"].get("profile").is_none() { pkg["dsh"]["profile"] = json!({}); }
+    if pkg["dsh"]["profile"].get("bundles").is_none() { pkg["dsh"]["profile"]["bundles"] = json!([]); }
+    if let Some(arr) = pkg["dsh"]["profile"]["bundles"].as_array_mut() {
+        if !arr.iter().any(|b| b == name) { arr.push(json!(name)); }
+    }
+    std::fs::write(&pkg_path, serde_json::to_string_pretty(&pkg)?)?;
+    let link_path = profile_dir.join("node_modules").join(name);
+    if !link_path.exists() { make_link(plugin_dir, &link_path)?; }
+    Ok(())
+}
+
+fn ensure_bundled_plugins(app: &AppHandle, bundles: &[(&str, &str)]) {
+    use tauri::path::BaseDirectory;
+    for (rel, name) in bundles {
+        let src = match app.path().resolve(rel, BaseDirectory::Resource) { Ok(p) => p, Err(_) => continue };
+        if !src.exists() { continue; }
+        let writable = match app.path().app_data_dir() { Ok(p) => p.join("plugins").join(name), Err(_) => continue };
+        if !writable.join("package.json").exists() { let _ = copy_dir_recursive(&src, &writable); }
+        let _ = write_profile_entry(&writable, name);
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(DshProc(Mutex::new(None)))
@@ -99,6 +165,8 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let handle = app.handle();
+            // 开箱自带蓝主题：装配进 ~/.dsh/profiles/web（必须在启动 DSH 之前）
+            ensure_bundled_plugins(handle, &[("plugins/dsh-theme-mineradio", "dsh-theme-mineradio")]);
             let _ = setup_tray(handle);
 
             if !has_node() {
