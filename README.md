@@ -27,7 +27,7 @@ dsh-desktop-tauri/
 
 ## 尚未实现 / 可补强
 1. **Node 引导页**：当前"无 Node 时用 `opener` 打开官网下载页"（最小版）。
-2. **主题/插件装配**：✅ 已实现（v0.1.1）——开箱自带内置蓝主题 `dsh-theme-mineradio`，首次启动自动装配进 `~/.dsh/profiles/web`（Windows 用 junction 目录联接）。
+2. **主题/插件装配**：✅ 已实现（自 v0.1.1）——开箱自带内置蓝主题 `dsh-theme-mineradio`，首次启动自动装配进 `~/.dsh/profiles/web`（Windows 用 junction 目录联接）。
 3. **设置页 UI 桥接**：`invoke` + `#[tauri::command]`（待做）。
 4. **代码签名 / 自动更新**：发布需 `tauri-plugin-updater` + 代码签名，避免 SmartScreen 警告。
 
@@ -51,5 +51,6 @@ MIT（见 `LICENSE`）；第三方组件许可见项目内说明。
 ## 安装 / 运行提示（社区套件）
 - 本程序为**社区自制、未签名**。首次安装/运行可能触发 Windows SmartScreen 的「未知发布者」提示，点 **更多信息 → 仍要运行** 即可。建议只从本仓库的 Releases 下载并校验哈希。
 - 需 Windows 10/11（自带 WebView2；安装包已配 WebView2 兜底）。
-- 校验 SHA-256（v0.1.1 安装包 `DSH Desktop_0.1.1_x64-setup.exe`）：
-  `C0E15A2DEC4DA9D72B747FEA0CC518115095C18D87FEFC94C5A5203933CC68FA`
+- 校验 SHA-256（v0.1.2 安装包 `DSH Desktop_0.1.2_x64-setup.exe`）：
+  `D3A8CA99D08E20FF93D8E6AF9DF5AC72CF7E89DE2E7D212ADA9858CEC0468D60`
+- 安全：自 v0.1.2 起用 `--remap-path-prefix` 重定位构建路径（`strip=symbols`），安装包/程序不再内嵌任何本机用户名或绝对路径。v0.1.1 因存在该问题已删除，请用 v0.1.2。
