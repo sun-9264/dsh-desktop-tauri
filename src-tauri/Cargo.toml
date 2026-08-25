@@ -1,6 +1,6 @@
 [package]
 name = "dsh-desktop"
-version = "0.1.1"
+version = "0.1.2"
 description = "DSH Desktop — DeepSeek Harness 第三方桌面启动器（Tauri 版，非官方）"
 license = "MIT"
 repository = "https://github.com/sun-9264/dsh-desktop-tauri"
